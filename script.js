@@ -45,9 +45,9 @@ function resetUI(msg="尚未載入資料"){
   rawData = [];
   setEnabled(false);
   yearSelect.innerHTML = `<option>${msg}</option>`;
-  regionSelect.innerHTML = `<option>${msg}</option>`;
+  const FILE_PREV = 'share-healthy-diet-unaffordable.csv';
   countrySelect.innerHTML = `<option>${msg}</option>`;
-  resetStats();
+  const FILE_NUM  = 'number-healthy-diet-unaffordable.csv';
   setEmpty("mapChart", msg);
   setEmpty("scatterChart", msg);
   setEmpty("lineChart", msg);
