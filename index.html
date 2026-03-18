@@ -11,39 +11,29 @@
   <div class="wrap">
     <div class="hero">
       <h1>Food Prices for Nutrition Dashboard</h1>
-      
+      <button id="hamburger" class="hamburger">☰</button>
     </div>
 
-    <div class="layout">
-      <div class="panel controls">
-        <h2>控制面板</h2>
+    <div id="controls" class="panel controls">
+      <h2>控制面板</h2>
 
-        <label for="yearSelect">年份</label>
-        <select id="yearSelect" disabled><option>載入中</option></select>
+      <label for="yearSelect">年份</label>
+      <select id="yearSelect" disabled><option>載入中</option></select>
 
-        <label for="metricSelect">指標</label>
-        <select id="metricSelect" disabled>
-          <option value="prev">無法負擔健康飲食比例（%）</option>
-          <option value="num">無法負擔健康飲食人數（百萬人）</option>
-        </select>
+      <label for="metricSelect">指標</label>
+      <select id="metricSelect" disabled>
+        <option value="prev">無法負擔健康飲食比例（%）</option>
+        <option value="num">無法負擔健康飲食人數（百萬人）</option>
+      </select>
 
-        <label for="regionSelect">區域篩選</label>
-        <select id="regionSelect" disabled><option>載入中</option></select>
+      <label for="countrySelect">單一國家時間序列</label>
+      <select id="countrySelect" disabled><option>載入中</option></select>
 
-        <label for="countrySelect">單一國家時間序列</label>
-        <select id="countrySelect" disabled><option>載入中</option></select>
+      <button id="reloadBtn" type="button">重新讀取資料</button>
 
-        <button id="reloadBtn" type="button">重新讀取資料</button>
+      <div id="statusBox" class="status">正在嘗試讀取同資料夾中的官方 CSV 檔案…</div>
 
-        <div id="statusBox" class="status">正在嘗試讀取同資料夾中的官方 CSV 檔案…</div>
-
-        <div class="link-list">
-          <div><strong>若檔案不存在，請下載：</strong></div>
-          <div><a href="https://ourworldindata.org/grapher/share-healthy-diet-unaffordable.csv" target="_blank" rel="noopener">share-healthy-diet-unaffordable.csv</a></div>
-          <div><a href="https://ourworldindata.org/grapher/number-healthy-diet-unaffordable.csv" target="_blank" rel="noopener">number-healthy-diet-unaffordable.csv</a></div>
-          <div class="note">若直接雙擊 HTML 打開仍讀不到資料，請改用 VS Code Live Server 或本機伺服器開啟。</div>
-        </div>
-      </div>
+    </div>
 
       <div>
         <div class="stats">
@@ -58,6 +48,7 @@
             <iframe src="https://ourworldindata.org/grapher/share-healthy-diet-unaffordable?time=latest&tab=map" loading="lazy" allow="web-share; clipboard-write"></iframe>
           </div>
         </div>
+      </div>
 
         <div class="charts" style="margin-top:16px;">
           <div class="panel">

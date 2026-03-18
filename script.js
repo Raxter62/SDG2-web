@@ -1,11 +1,10 @@
 let rawData = [];
 
-const FILE_PREV = 'https://ourworldindata.org/grapher/share-healthy-diet-unaffordable.csv';
-const FILE_NUM  = 'https://ourworldindata.org/grapher/number-healthy-diet-unaffordable.csv';
+const FILE_PREV = 'share-healthy-diet-unaffordable.csv';
+const FILE_NUM  = 'number-healthy-diet-unaffordable.csv';
 
 const yearSelect = document.getElementById('yearSelect');
 const metricSelect = document.getElementById('metricSelect');
-const regionSelect = document.getElementById('regionSelect');
 const countrySelect = document.getElementById('countrySelect');
 const reloadBtn = document.getElementById('reloadBtn');
 const statusBox = document.getElementById('statusBox');
@@ -31,7 +30,6 @@ function fmt(n, digits=1){
 function setEnabled(state){
   yearSelect.disabled = !state;
   metricSelect.disabled = !state;
-  regionSelect.disabled = !state;
   countrySelect.disabled = !state;
 }
 function setStatus(msg){ statusBox.textContent = msg; }
@@ -45,9 +43,7 @@ function resetUI(msg="尚未載入資料"){
   rawData = [];
   setEnabled(false);
   yearSelect.innerHTML = `<option>${msg}</option>`;
-  const FILE_PREV = 'share-healthy-diet-unaffordable.csv';
   countrySelect.innerHTML = `<option>${msg}</option>`;
-  const FILE_NUM  = 'number-healthy-diet-unaffordable.csv';
   setEmpty("mapChart", msg);
   setEmpty("scatterChart", msg);
   setEmpty("lineChart", msg);
@@ -85,7 +81,9 @@ function inferRegion(entity){
 function normalizeOwidShare(rows){
   const lower = Object.keys(rows[0] || {}).reduce((m,k)=>{m[k.toLowerCase()] = k; return m;}, {});
   const entityK = lower["entity"], codeK = lower["code"], yearK = lower["year"];
-  const valK = lower["share of population that cannot afford a healthy diet"] || lower["prevalence of unaffordability of a healthy diet"];
+  const valK = lower["share of population that cannot afford a healthy diet"]
+    || lower["prevalence of unaffordability of a healthy diet"]
+    || lower["share of the population who cannot afford a healthy diet"];
   if(!entityK || !yearK || !valK) throw new Error("share CSV 欄位格式無法辨識");
   return rows
     .map(r => ({
@@ -108,7 +106,7 @@ function normalizeOwidNum(rows){
       iso3: r[codeK] || null,
       region: inferRegion(r[entityK]),
       year: num(r[yearK]),
-      num_unaffordable_millions: num(r[valK])
+      num_unaffordable_millions: num(r[valK]) / 1000000
     }))
     .filter(r => r.country && r.year && r.iso3 && r.country !== "World");
 }
@@ -136,17 +134,13 @@ function fillSelectors(data){
   yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join("");
   yearSelect.value = years[years.length - 1];
 
-  const regions = ["All", ...uniq(data.map(d=>d.region || "Other")).sort()];
-  regionSelect.innerHTML = regions.map(r => `<option value="${r}">${r}</option>`).join("");
-
   const countries = uniq(data.map(d=>d.country)).sort();
   countrySelect.innerHTML = countries.map(c => `<option value="${c}">${c}</option>`).join("");
   countrySelect.value = countries.includes("Taiwan") ? "Taiwan" : countries[0];
 }
 function getFilteredYearData(){
   const year = Number(yearSelect.value);
-  const region = regionSelect.value;
-  return rawData.filter(d => d.year === year && (region === "All" || (d.region || "Other") === region));
+  return rawData.filter(d => d.year === year);
 }
 function getSeries(country){
   return rawData.filter(d => d.country === country).sort((a,b)=>a.year-b.year);
@@ -157,7 +151,7 @@ function updateStats(data){
   const avgPrev = prevData.length ? prevData.reduce((a,b)=>a+b,0)/prevData.length : null;
   const sumNum = numData.length ? numData.reduce((a,b)=>a+b,0) : null;
   document.getElementById('avgPrev').textContent = avgPrev===null ? "-" : fmt(avgPrev,1) + "%";
-  document.getElementById('sumNum').textContent = sumNum===null ? "-" : fmt(sumNum,1) + "M";
+  document.getElementById('sumNum').textContent = sumNum===null ? "-" : fmt(sumNum, 1)+ "M";
   document.getElementById('countryCount').textContent = data.length;
 }
 function drawMap(data){
@@ -263,11 +257,15 @@ function redrawAll(){
 }
 async function loadLocalData(){
   try{
+    console.log("Starting to load data...");
     setStatus("正在讀取同資料夾中的官方 CSV 檔案…");
+    console.log("Fetching:", FILE_PREV, FILE_NUM);
     const [respPrev, respNum] = await Promise.all([fetch(FILE_PREV), fetch(FILE_NUM)]);
-    if(!respPrev.ok) throw new Error(`找不到 ${FILE_PREV}`);
-    if(!respNum.ok) throw new Error(`找不到 ${FILE_NUM}`);
+    console.log("Fetch responses:", respPrev.status, respNum.status);
+    if(!respPrev.ok) throw new Error(`找不到 ${FILE_PREV} (status: ${respPrev.status})`);
+    if(!respNum.ok) throw new Error(`找不到 ${FILE_NUM} (status: ${respNum.status})`);
     const [textPrev, textNum] = await Promise.all([respPrev.text(), respNum.text()]);
+    console.log("Text lengths:", textPrev.length, textNum.length);
     const prevRows = normalizeOwidShare(parseCsv(textPrev));
     const numRows  = normalizeOwidNum(parseCsv(textNum));
     rawData = mergeData(prevRows, numRows);
@@ -277,13 +275,20 @@ async function loadLocalData(){
     redrawAll();
     setStatus(`已載入 ${rawData.length} 筆國家年度資料。`);
   }catch(err){
+    console.error("Error loading data:", err);
     resetUI("讀不到資料");
     setStatus("讀取失敗：" + err.message + "。若你是直接雙擊 HTML 打開，請改用 VS Code Live Server 或本機伺服器。");
   }
 }
 
-[yearSelect, metricSelect, regionSelect, countrySelect].forEach(el => el.addEventListener('change', redrawAll));
+[yearSelect, metricSelect, countrySelect].forEach(el => el.addEventListener('change', redrawAll));
 reloadBtn.addEventListener('click', loadLocalData);
+
+const hamburger = document.getElementById('hamburger');
+const controls = document.getElementById('controls');
+hamburger.addEventListener('click', () => {
+  controls.classList.toggle('open');
+});
 
 resetUI("載入中");
 loadLocalData();
