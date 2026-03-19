@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Food Prices for Nutrition Dashboard</title>
+  <title>SDG2 零飢餓：全球營養與飲食數據</title>
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
   <link href="style.css" rel="stylesheet">
 </head>
+
 <body>
   <div class="wrap">
     <div class="hero">
-      <h1>Food Prices for Nutrition Dashboard</h1>
+      <h1>SDG2 零飢餓：全球營養與飲食數據</h1>
       <button id="hamburger" class="hamburger">☰</button>
     </div>
 
@@ -18,7 +20,9 @@
       <h2>控制面板</h2>
 
       <label for="yearSelect">年份</label>
-      <select id="yearSelect" disabled><option>載入中</option></select>
+      <select id="yearSelect" disabled>
+        <option>載入中</option>
+      </select>
 
       <label for="metricSelect">指標</label>
       <select id="metricSelect" disabled>
@@ -26,60 +30,100 @@
         <option value="num">無法負擔健康飲食人數（百萬人）</option>
       </select>
 
-      <label for="countrySelect">單一國家時間序列</label>
-      <select id="countrySelect" disabled><option>載入中</option></select>
+      <label for="countryInput">單一國家時間序列 (可搜尋)</label>
+      <input type="text" id="countryInput" list="countryList" placeholder="輸入或選擇國家..." disabled>
+      <datalist id="countryList"></datalist>
 
-      <button id="reloadBtn" type="button">重新讀取資料</button>
+      <button id="confirmBtn" type="button">確認</button>
+      <button id="reloadBtn" type="button" class="secondary">重新讀取資料</button>
 
       <div id="statusBox" class="status">正在嘗試讀取同資料夾中的官方 CSV 檔案…</div>
 
     </div>
 
-      <div>
-        <div class="stats">
-          <div class="stat"><div class="k">平均無法負擔比例</div><div class="v" id="avgPrev">-</div></div>
-          <div class="stat"><div class="k">總無法負擔人數</div><div class="v" id="sumNum">-</div></div>
-          <div class="stat"><div class="k">目前顯示國家數</div><div class="v" id="countryCount">-</div></div>
+    <div>
+      <div class="stats">
+        <div class="stat">
+          <div class="k">無法負擔健康飲食平均比例</div>
+          <div class="v" id="avgPrev">-</div>
+        </div>
+        <div class="stat">
+          <div class="k">無法負擔健康飲食總人數</div>
+          <div class="v" id="sumNum">-</div>
+        </div>
+        <div class="stat">
+          <div class="k">目前顯示國家數</div>
+          <div class="v" id="countryCount">-</div>
+        </div>
+      </div>
+
+      <div class="charts" style="margin-bottom:16px;">
+        <div class="panel">
+          <h3>世界飢餓人口</h3>
+          <div id="worldHungerChart" class="chart">
+            <div class="empty">載入資料中</div>
+          </div>
         </div>
 
         <div class="panel">
-          <h3>官方互動地圖</h3>
-          <div class="iframe-wrap">
-            <iframe src="https://ourworldindata.org/grapher/share-healthy-diet-unaffordable?time=latest&tab=map" loading="lazy" allow="web-share; clipboard-write"></iframe>
+          <h3>單一國家飢餓人口</h3>
+          <div id="countryHungerChart" class="chart">
+            <div class="empty">載入資料中</div>
           </div>
         </div>
       </div>
 
-        <div class="charts" style="margin-top:16px;">
-          <div class="panel">
-            <h3>世界地圖</h3>
-            <div id="mapChart" class="chart"><div class="empty">載入資料中</div></div>
-          </div>
-          <div class="panel">
-            <h3>散點圖：比例 vs 人數</h3>
-            <div id="scatterChart" class="chart"><div class="empty">載入資料中</div></div>
-          </div>
-          <div class="panel">
-            <h3>單一國家時間序列</h3>
-            <div id="lineChart" class="chart tall"><div class="empty">載入資料中</div></div>
-          </div>
-          <div class="panel">
-            <h3>前 15 名國家排行</h3>
-            <div id="barChart" class="chart tall"><div class="empty">載入資料中</div></div>
-          </div>
-          <div class="panel">
-            <h3>世界營養不良指數</h3>
-            <div id="worldUndernourishmentChart" class="chart"><div class="empty">載入資料中</div></div>
-          </div>
-          <div class="panel">
-            <h3>單一國家營養不良指數</h3>
-            <div id="countryUndernourishmentChart" class="chart"><div class="empty">載入資料中</div></div>
-          </div>
+      <div class="panel">
+        <div class="iframe-wrap">
+          <iframe src="https://ourworldindata.org/grapher/share-healthy-diet-unaffordable?time=latest&tab=map"
+            loading="lazy" allow="web-share; clipboard-write"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts" style="margin-top:16px;">
+      <div class="panel">
+        <h3>世界地圖</h3>
+        <div id="mapChart" class="chart">
+          <div class="empty">載入資料中</div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>散點圖：比例 vs 人數</h3>
+        <div id="scatterChart" class="chart">
+          <div class="empty">載入資料中</div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>單一國家營養不良時間序列</h3>
+        <div id="lineChart" class="chart tall">
+          <div class="empty">載入資料中</div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>前 15 名營養不良國家排行</h3>
+        <div id="barChart" class="chart tall">
+          <div class="empty">載入資料中</div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>世界營養不良指數</h3>
+        <div id="worldUndernourishmentChart" class="chart">
+          <div class="empty">載入資料中</div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>單一國家營養不良指數</h3>
+        <div id="countryUndernourishmentChart" class="chart">
+          <div class="empty">載入資料中</div>
         </div>
       </div>
     </div>
   </div>
+  </div>
+  </div>
 
-<script src="script.js"></script>
+  <script src="script.js"></script>
 </body>
+
 </html>
