@@ -2,6 +2,7 @@ let rawData = [];
 
 const FILE_PREV = 'share-healthy-diet-unaffordable.csv';
 const FILE_NUM  = 'number-healthy-diet-unaffordable.csv';
+const FILE_COMBINED = 'combined_selected_countries.csv';
 
 const yearSelect = document.getElementById('yearSelect');
 const metricSelect = document.getElementById('metricSelect');
@@ -48,6 +49,8 @@ function resetUI(msg="尚未載入資料"){
   setEmpty("scatterChart", msg);
   setEmpty("lineChart", msg);
   setEmpty("barChart", msg);
+  setEmpty("worldUndernourishmentChart", msg);
+  setEmpty("countryUndernourishmentChart", msg);
 }
 function splitCSVLine(line){
   const out=[]; let cur=""; let inQ=false;
@@ -110,9 +113,26 @@ function normalizeOwidNum(rows){
     }))
     .filter(r => r.country && r.year && r.iso3 && r.country !== "World");
 }
-function mergeData(prevRows, numRows){
+function normalizeCombined(rows){
+  const lower = Object.keys(rows[0] || {}).reduce((m,k)=>{m[k.toLowerCase()] = k; return m;}, {});
+  const countryK = lower["country"], iso3K = lower["iso3"], yearK = lower["year"];
+  const undernourishmentK = lower["prevalence_of_undernourishment_percent_3yr_avg"];
+  const severeK = lower["prevalence_of_severe_food_insecurity_percent_3yr_avg"];
+  if(!countryK || !iso3K || !yearK) throw new Error("combined CSV 欄位格式無法辨識");
+  return rows
+    .map(r => ({
+      country: r[countryK],
+      iso3: r[iso3K],
+      region: inferRegion(r[countryK]),
+      year: num(r[yearK]),
+      undernourishment_percent: num(r[undernourishmentK]),
+      severe_food_insecurity_percent: num(r[severeK])
+    }))
+    .filter(r => r.country && r.year && r.iso3);
+}
+function mergeData(prevRows, numRows, combinedRows){
   const grouped = {};
-  [...prevRows, ...numRows].forEach(r => {
+  [...prevRows, ...numRows, ...combinedRows].forEach(r => {
     const id = `${r.country}|${r.iso3}|${r.year}`;
     if(!grouped[id]){
       grouped[id] = {
@@ -121,11 +141,15 @@ function mergeData(prevRows, numRows){
         region:r.region || "Other",
         year:r.year,
         prev_unaffordable:null,
-        num_unaffordable_millions:null
+        num_unaffordable_millions:null,
+        undernourishment_percent:null,
+        severe_food_insecurity_percent:null
       };
     }
     if(r.prev_unaffordable !== undefined) grouped[id].prev_unaffordable = r.prev_unaffordable;
     if(r.num_unaffordable_millions !== undefined) grouped[id].num_unaffordable_millions = r.num_unaffordable_millions;
+    if(r.undernourishment_percent !== undefined) grouped[id].undernourishment_percent = r.undernourishment_percent;
+    if(r.severe_food_insecurity_percent !== undefined) grouped[id].severe_food_insecurity_percent = r.severe_food_insecurity_percent;
   });
   return Object.values(grouped).filter(r => r.country && r.iso3 && r.year);
 }
@@ -210,6 +234,10 @@ function drawLine(country){
   const s = getSeries(country).filter(d => d.prev_unaffordable !== null || d.num_unaffordable_millions !== null);
   if(!s.length){ setEmpty("lineChart","目前資料沒有這個國家的時間序列"); return; }
 
+  // Update the title dynamically
+  const titleElement = document.querySelector("#lineChart").parentElement.querySelector("h3");
+  if(titleElement) titleElement.textContent = `${country} 時間序列`;
+
   Plotly.newPlot("lineChart", [
     {type:"scatter",mode:"lines+markers",name:"比例",x:s.map(d=>d.year),y:s.map(d=>d.prev_unaffordable),yaxis:"y1",line:{width:3}},
     {type:"scatter",mode:"lines+markers",name:"人數",x:s.map(d=>d.year),y:s.map(d=>d.num_unaffordable_millions),yaxis:"y2",line:{width:3}}
@@ -246,6 +274,44 @@ function drawBar(data){
     yaxis:{automargin:true}
   }, {displayModeBar:false, responsive:true});
 }
+function drawWorldUndernourishment(){
+  const worldData = rawData.filter(d => d.country === "World" || d.undernourishment_percent !== null).sort((a,b)=>a.year-b.year);
+  if(!worldData.length){ setEmpty("worldUndernourishmentChart","目前資料沒有世界的營養不良數據"); return; }
+
+  Plotly.newPlot("worldUndernourishmentChart", [
+    {type:"scatter",mode:"lines+markers",name:"營養不良比例",x:worldData.map(d=>d.year),y:worldData.map(d=>d.undernourishment_percent),line:{width:3}},
+    {type:"scatter",mode:"lines+markers",name:"嚴重食物不安全比例",x:worldData.map(d=>d.year),y:worldData.map(d=>d.severe_food_insecurity_percent),line:{width:3}}
+  ], {
+    paper_bgcolor:"#121936",
+    plot_bgcolor:"#121936",
+    margin:{l:55,r:20,t:20,b:55},
+    font:{color:"#eef2ff"},
+    xaxis:{title:"年份", gridcolor:"#314073"},
+    yaxis:{title:"比例（%）", gridcolor:"#314073"},
+    legend:{orientation:"h", y:1.12}
+  }, {displayModeBar:false, responsive:true});
+}
+function drawCountryUndernourishment(country){
+  const s = getSeries(country).filter(d => d.undernourishment_percent !== null || d.severe_food_insecurity_percent !== null);
+  if(!s.length){ setEmpty("countryUndernourishmentChart","目前資料沒有這個國家的營養不良數據"); return; }
+
+  // Update the title dynamically
+  const titleElement = document.querySelector("#countryUndernourishmentChart").parentElement.querySelector("h3");
+  if(titleElement) titleElement.textContent = `${country} 營養不良指數`;
+
+  Plotly.newPlot("countryUndernourishmentChart", [
+    {type:"scatter",mode:"lines+markers",name:"營養不良比例",x:s.map(d=>d.year),y:s.map(d=>d.undernourishment_percent),line:{width:3}},
+    {type:"scatter",mode:"lines+markers",name:"嚴重食物不安全比例",x:s.map(d=>d.year),y:s.map(d=>d.severe_food_insecurity_percent),line:{width:3}}
+  ], {
+    paper_bgcolor:"#121936",
+    plot_bgcolor:"#121936",
+    margin:{l:55,r:20,t:20,b:55},
+    font:{color:"#eef2ff"},
+    xaxis:{title:"年份", gridcolor:"#314073"},
+    yaxis:{title:"比例（%）", gridcolor:"#314073"},
+    legend:{orientation:"h", y:1.12}
+  }, {displayModeBar:false, responsive:true});
+}
 function redrawAll(){
   if(!rawData.length) return;
   const yearData = getFilteredYearData();
@@ -254,22 +320,26 @@ function redrawAll(){
   drawScatter(yearData);
   drawBar(yearData);
   drawLine(countrySelect.value);
+  drawWorldUndernourishment();
+  drawCountryUndernourishment(countrySelect.value);
 }
 async function loadLocalData(){
   try{
     console.log("Starting to load data...");
     setStatus("正在讀取同資料夾中的官方 CSV 檔案…");
-    console.log("Fetching:", FILE_PREV, FILE_NUM);
-    const [respPrev, respNum] = await Promise.all([fetch(FILE_PREV), fetch(FILE_NUM)]);
-    console.log("Fetch responses:", respPrev.status, respNum.status);
+    console.log("Fetching:", FILE_PREV, FILE_NUM, FILE_COMBINED);
+    const [respPrev, respNum, respCombined] = await Promise.all([fetch(FILE_PREV), fetch(FILE_NUM), fetch(FILE_COMBINED)]);
+    console.log("Fetch responses:", respPrev.status, respNum.status, respCombined.status);
     if(!respPrev.ok) throw new Error(`找不到 ${FILE_PREV} (status: ${respPrev.status})`);
     if(!respNum.ok) throw new Error(`找不到 ${FILE_NUM} (status: ${respNum.status})`);
-    const [textPrev, textNum] = await Promise.all([respPrev.text(), respNum.text()]);
-    console.log("Text lengths:", textPrev.length, textNum.length);
+    if(!respCombined.ok) throw new Error(`找不到 ${FILE_COMBINED} (status: ${respCombined.status})`);
+    const [textPrev, textNum, textCombined] = await Promise.all([respPrev.text(), respNum.text(), respCombined.text()]);
+    console.log("Text lengths:", textPrev.length, textNum.length, textCombined.length);
     const prevRows = normalizeOwidShare(parseCsv(textPrev));
     const numRows  = normalizeOwidNum(parseCsv(textNum));
-    rawData = mergeData(prevRows, numRows);
-    if(!rawData.length) throw new Error("兩個 CSV 讀取成功，但合併後沒有資料。");
+    const combinedRows = normalizeCombined(parseCsv(textCombined));
+    rawData = mergeData(prevRows, numRows, combinedRows);
+    if(!rawData.length) throw new Error("三個 CSV 讀取成功，但合併後沒有資料。");
     fillSelectors(rawData);
     setEnabled(true);
     redrawAll();
