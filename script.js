@@ -1,5 +1,5 @@
 let rawData = [];
-let currentCountry = "";
+let selectedCountries = [];
 
 const FILE_PREV = 'share-healthy-diet-unaffordable.csv';
 const FILE_NUM = 'number-healthy-diet-unaffordable.csv';
@@ -10,6 +10,8 @@ const yearSelect = document.getElementById('yearSelect');
 const metricSelect = document.getElementById('metricSelect');
 const countryInput = document.getElementById('countryInput');
 const countryList = document.getElementById('countryList');
+const addCountryBtn = document.getElementById('addCountryBtn');
+const countryTags = document.getElementById('countryTags');
 const reloadBtn = document.getElementById('reloadBtn');
 const statusBox = document.getElementById('statusBox');
 
@@ -35,6 +37,7 @@ function setEnabled(state) {
   yearSelect.disabled = !state;
   metricSelect.disabled = !state;
   countryInput.disabled = !state;
+  if(addCountryBtn) addCountryBtn.disabled = !state;
 }
 function setStatus(msg) { statusBox.textContent = msg; }
 function setEmpty(id, msg) { document.getElementById(id).innerHTML = `<div class="empty">${msg}</div>`; }
@@ -50,6 +53,8 @@ function resetUI(msg = "尚未載入資料") {
   countryInput.value = "";
   countryInput.placeholder = msg;
   if (countryList) countryList.innerHTML = "";
+  selectedCountries = [];
+  if (countryTags) countryTags.innerHTML = "";
   setEmpty("mapChart", msg);
   setEmpty("scatterChart", msg);
   setEmpty("lineChart", msg);
@@ -177,6 +182,24 @@ function mergeData(prevRows, numRows, combinedRows, undernourishRows) {
   });
   return Object.values(grouped).filter(r => r.country && r.iso3 && r.year);
 }
+function renderTags() {
+  if (!countryTags) return;
+  countryTags.innerHTML = selectedCountries.map(c => `
+    <div class="country-tag">
+      ${c} <button type="button" class="remove-btn" data-country="${c}">&times;</button>
+    </div>
+  `).join("");
+  
+  countryTags.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const cToRemove = e.target.getAttribute('data-country');
+      selectedCountries = selectedCountries.filter(c => c !== cToRemove);
+      renderTags();
+      redrawAll();
+    });
+  });
+}
+
 function fillSelectors(data) {
   const years = uniq(data.map(d => d.year)).filter(Boolean).sort((a, b) => a - b);
   yearSelect.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join("");
@@ -184,8 +207,11 @@ function fillSelectors(data) {
 
   const countries = uniq(data.map(d => d.country)).sort();
   if (countryList) countryList.innerHTML = countries.map(c => `<option value="${c}"></option>`).join("");
-  currentCountry = countries.includes("Taiwan") ? "Taiwan" : countries[0];
-  countryInput.value = currentCountry;
+  
+  const defaultCountry = countries.includes("Taiwan") ? "Taiwan" : countries[0];
+  selectedCountries = [defaultCountry];
+  countryInput.value = "";
+  renderTags();
 }
 function getFilteredYearData() {
   const year = Number(yearSelect.value);
@@ -255,18 +281,23 @@ function drawScatter(data) {
     yaxis: { title: "無法負擔健康飲食人數（百萬人）", gridcolor: "#314073" }
   }, { displayModeBar: false, responsive: true });
 }
-function drawLine(country) {
-  const s = getSeries(country).filter(d => d.prev_unaffordable !== null || d.num_unaffordable_millions !== null);
-  if (!s.length) { setEmpty("lineChart", "目前資料沒有這個國家的時間序列"); return; }
+function drawLine() {
+  if (!selectedCountries.length) { setEmpty("lineChart", "請至少新增一個國家"); return; }
+  const traces = [];
+  selectedCountries.forEach(country => {
+    const s = getSeries(country).filter(d => d.prev_unaffordable !== null || d.num_unaffordable_millions !== null);
+    if(s.length) {
+      traces.push({ type: "scatter", mode: "lines+markers", name: `${country} 比例`, x: s.map(d => d.year), y: s.map(d => d.prev_unaffordable), yaxis: "y1", line: { width: 3 } });
+      traces.push({ type: "scatter", mode: "lines+markers", name: `${country} 人數`, x: s.map(d => d.year), y: s.map(d => d.num_unaffordable_millions), yaxis: "y2", line: { width: 3, dash: "dot" } });
+    }
+  });
 
-  // Update the title dynamically
+  if (!traces.length) { setEmpty("lineChart", "目前資料沒有這些國家的時間序列"); return; }
+
   const titleElement = document.querySelector("#lineChart").parentElement.querySelector("h3");
-  if (titleElement) titleElement.textContent = `${country} 時間序列`;
+  if (titleElement) titleElement.textContent = `多國時間序列比較`;
 
-  Plotly.newPlot("lineChart", [
-    { type: "scatter", mode: "lines+markers", name: "比例", x: s.map(d => d.year), y: s.map(d => d.prev_unaffordable), yaxis: "y1", line: { width: 3 } },
-    { type: "scatter", mode: "lines+markers", name: "人數", x: s.map(d => d.year), y: s.map(d => d.num_unaffordable_millions), yaxis: "y2", line: { width: 3 } }
-  ], {
+  Plotly.newPlot("lineChart", traces, {
     paper_bgcolor: "#121936",
     plot_bgcolor: "#121936",
     margin: { l: 55, r: 55, t: 20, b: 45 },
@@ -316,18 +347,23 @@ function drawWorldUndernourishment() {
     legend: { orientation: "h", y: 1.12 }
   }, { displayModeBar: false, responsive: true });
 }
-function drawCountryUndernourishment(country) {
-  const s = getSeries(country).filter(d => d.undernourishment_percent !== null || d.severe_food_insecurity_percent !== null);
-  if (!s.length) { setEmpty("countryUndernourishmentChart", "目前資料沒有這個國家的營養不良數據"); return; }
+function drawCountryUndernourishment() {
+  if (!selectedCountries.length) { setEmpty("countryUndernourishmentChart", "請至少新增一個國家"); return; }
+  const traces = [];
+  selectedCountries.forEach(country => {
+    const s = getSeries(country).filter(d => d.undernourishment_percent !== null || d.severe_food_insecurity_percent !== null);
+    if(s.length) {
+      traces.push({ type: "scatter", mode: "lines+markers", name: `${country} 營養不良比例`, x: s.map(d => d.year), y: s.map(d => d.undernourishment_percent), line: { width: 3 } });
+      traces.push({ type: "scatter", mode: "lines+markers", name: `${country} 嚴重食物不安全`, x: s.map(d => d.year), y: s.map(d => d.severe_food_insecurity_percent), line: { width: 3, dash: "dot" } });
+    }
+  });
 
-  // Update the title dynamically
+  if (!traces.length) { setEmpty("countryUndernourishmentChart", "目前資料沒有這些國家的營養不良數據"); return; }
+
   const titleElement = document.querySelector("#countryUndernourishmentChart").parentElement.querySelector("h3");
-  if (titleElement) titleElement.textContent = `${country} 營養不良指數`;
+  if (titleElement) titleElement.textContent = `多國營養不良指數`;
 
-  Plotly.newPlot("countryUndernourishmentChart", [
-    { type: "scatter", mode: "lines+markers", name: "營養不良比例", x: s.map(d => d.year), y: s.map(d => d.undernourishment_percent), line: { width: 3 } },
-    { type: "scatter", mode: "lines+markers", name: "嚴重食物不安全比例", x: s.map(d => d.year), y: s.map(d => d.severe_food_insecurity_percent), line: { width: 3 } }
-  ], {
+  Plotly.newPlot("countryUndernourishmentChart", traces, {
     paper_bgcolor: "#121936",
     plot_bgcolor: "#121936",
     margin: { l: 55, r: 20, t: 20, b: 55 },
@@ -352,22 +388,29 @@ function drawWorldHunger() {
     yaxis: { title: "飢餓人口（人）", gridcolor: "#314073" }
   }, { displayModeBar: false, responsive: true });
 }
-function drawCountryHunger(country) {
-  const s = getSeries(country).filter(d => d.num_undernourished !== null);
-  if (!s.length) { setEmpty("countryHungerChart", "目前資料沒有這個國家的飢餓人口數據"); return; }
+function drawCountryHunger() {
+  if (!selectedCountries.length) { setEmpty("countryHungerChart", "請至少新增一個國家"); return; }
+  const traces = [];
+  selectedCountries.forEach(country => {
+    const s = getSeries(country).filter(d => d.num_undernourished !== null);
+    if(s.length) {
+      traces.push({ type: "scatter", mode: "lines+markers", name: `${country} 飢餓人口`, x: s.map(d => d.year), y: s.map(d => d.num_undernourished), line: { width: 3 } });
+    }
+  });
+
+  if (!traces.length) { setEmpty("countryHungerChart", "目前資料沒有這些國家的飢餓人口數據"); return; }
 
   const titleElement = document.querySelector("#countryHungerChart").parentElement.querySelector("h3");
-  if (titleElement) titleElement.textContent = `${country} 飢餓人口`;
+  if (titleElement) titleElement.textContent = `多國飢餓人口`;
 
-  Plotly.newPlot("countryHungerChart", [
-    { type: "scatter", mode: "lines+markers", name: "飢餓人口", x: s.map(d => d.year), y: s.map(d => d.num_undernourished), line: { width: 3, color: "#ff5722" } }
-  ], {
+  Plotly.newPlot("countryHungerChart", traces, {
     paper_bgcolor: "#121936",
     plot_bgcolor: "#121936",
     margin: { l: 70, r: 20, t: 20, b: 55 },
     font: { color: "#eef2ff" },
     xaxis: { title: "年份", gridcolor: "#314073" },
-    yaxis: { title: "飢餓人口（人）", gridcolor: "#314073" }
+    yaxis: { title: "飢餓人口（人）", gridcolor: "#314073" },
+    legend: { orientation: "h", y: 1.12 }
   }, { displayModeBar: false, responsive: true });
 }
 function redrawAll() {
@@ -377,11 +420,11 @@ function redrawAll() {
   drawMap(yearData);
   drawScatter(yearData);
   drawBar(yearData);
-  drawLine(countryInput.value);
+  drawLine();
   drawWorldUndernourishment();
-  drawCountryUndernourishment(countryInput.value);
+  drawCountryUndernourishment();
   drawWorldHunger();
-  drawCountryHunger(countryInput.value);
+  drawCountryHunger();
 }
 async function loadLocalData() {
   try {
@@ -415,28 +458,37 @@ async function loadLocalData() {
 
 [yearSelect, metricSelect].forEach(el => el.addEventListener('change', redrawAll));
 
-countryInput.addEventListener('focus', function() {
-  this.value = '';
-});
-
-countryInput.addEventListener('blur', function() {
-  if (this.value.trim() === '') {
-    this.value = currentCountry;
-  }
-});
-
-countryInput.addEventListener('change', function() {
+function handleAddCountry() {
   const allCountries = uniq(rawData.map(d => d.country));
-  const val = this.value.trim().toLowerCase();
+  const val = countryInput.value.trim().toLowerCase();
   const match = allCountries.find(c => c.toLowerCase() === val);
   
   if (match) {
-    currentCountry = match;
-    this.value = match;
-    redrawAll();
-  } else {
-    this.value = currentCountry;
+    if (!selectedCountries.includes(match)) {
+      selectedCountries.push(match);
+      renderTags();
+      redrawAll();
+    } else {
+      setStatus("國家已在清單中");
+    }
+    countryInput.value = '';
+  } else if (val) {
+    setStatus("找到不匹配的國家名稱: " + countryInput.value);
+    countryInput.value = '';
   }
+}
+
+if(addCountryBtn) addCountryBtn.addEventListener('click', handleAddCountry);
+
+countryInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    handleAddCountry();
+  }
+});
+
+countryInput.addEventListener('focus', function() {
+  this.value = '';
 });
 
 reloadBtn.addEventListener('click', loadLocalData);

@@ -30,9 +30,13 @@
         <option value="num">無法負擔健康飲食人數（百萬人）</option>
       </select>
 
-      <label for="countryInput">單一國家時間序列 (可搜尋)</label>
-      <input type="text" id="countryInput" list="countryList" placeholder="輸入或選擇國家..." disabled>
+      <label for="countryInput">國家時間序列比較 (可搜尋)</label>
+      <div style="display:flex; gap:10px;">
+        <input type="text" id="countryInput" list="countryList" placeholder="輸入或選擇國家..." disabled>
+        <button id="addCountryBtn" type="button" style="margin-top:0; width:auto; white-space:nowrap; padding: 12px 16px;" disabled>新增國家</button>
+      </div>
       <datalist id="countryList"></datalist>
+      <div id="countryTags" class="tags-container"></div>
 
       <button id="confirmBtn" type="button">確認</button>
       <button id="reloadBtn" type="button" class="secondary">重新讀取資料</button>

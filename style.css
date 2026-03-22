@@ -166,6 +166,46 @@ select:disabled {
   cursor: not-allowed;
 }
 
+/* Country Tags */
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.country-tag {
+  background: var(--control-bg);
+  border: 1px solid rgba(115, 167, 255, 0.4);
+  color: var(--text-main);
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.country-tag .remove-btn {
+  background: transparent;
+  border: none;
+  color: #ff6b6b;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  line-height: 1;
+  width: auto;
+  box-shadow: none;
+}
+
+.country-tag .remove-btn:hover {
+  color: #ff3b3b;
+  transform: scale(1.1);
+  box-shadow: none;
+  background: transparent;
+}
+
 /* Buttons */
 button {
   margin-top: 20px;
